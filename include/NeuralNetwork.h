@@ -39,8 +39,10 @@
 
 //O angulo nao possui receita de bolo, voces podem altera-lo em diferentes niveis, ou ate lidar com valores continuos
 //Angulo de rotacao  (Neuronio da camada de saida 3)
-#define OUT_AR_SEM_ROTACAO  0.1
-#define  OUT_AR_FRONTAL     0.2
+#define OUT_AR_SEM_ROTACAO  0.2    //0
+#define OUT_AR_LATERAL      0.4    //5
+#define OUT_AR_DIAGONAL     0.6    //15
+#define OUT_AR_FRONTAL      0.8    //45
 //...
 
 //Essa e uma sugestao, voces tambem podem trabalhar com a velocidade de movbvimento tambem sendo retornada pela rede neural, pois quanto mais proximo dos obstaculos, mais lento deveria ser o movimento
