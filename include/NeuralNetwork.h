@@ -7,64 +7,44 @@
 #include "Sigmoid.h"
 #include "ExpectedMovement.h"
 
+// --- CORREÇÃO: Ajustei os números para bater com a quantidade real de linhas que você criou ---
+#define PadroesTreinamento 18
+#define PadroesValidacao 12
 
-#define PadroesValidacao 56
-#define PadroesTreinamento 56 
-#define Sucesso 0.04		    // 0.0004
+#define Sucesso 0.04            // 0.0004
 #define NumeroCiclos 100000     // Exibir o progresso do treinamento a cada NumeroCiclos ciclos
 
 //Sigmoide
 #define TaxaAprendizado 0.3     //0.3 converge super rápido e com uma boa precisão (sigmoide na oculta).
-#define Momentum 0.9            // Dificulta a convergencia da rede em minimos locais, fazendo com que convirja apenas quando realmente se tratar de um valor realmente significante.
+#define Momentum 0.9            // Dificulta a convergencia da rede em minimos locais
 #define MaximoPesoInicial 0.5
 
-
-//Saidas da rede neural (Exemplo): Vocês precisam definir os intervalos entre 0 e 1 para cada uma das saídas de um mesmo neuronio.
-//Alem disso, esses sao exemplos, voces podem ter mais tipos de saidas, por exemplo defni que o robo ira rotacionar para a direita, esquerda ou nao rotacionar, no geral isso nao teria como alterar, entao deixei como exemplo.
-
-//Direcao de rotacao (Neuronio da camada de saida 1)
-//   Direita              Reto            Esquerda
-//0.125 - 0.375      0.375 - 0.625      0.625 - 0.875
-//    0,25				  0,5                0,75
+// --- Definições de Saída ---
+// Direcao de rotacao
 #define OUT_DR_DIREITA    0.25    
 #define OUT_DR_ESQUERDA   0.5   
 #define OUT_DR_FRENTE     0.75
 
-//Para a direcao de movimento nao ha muita diferenca, entao acredito que voces possam adotar esses valores
-//Direcao de movimento (Neuronio da camada de saida 2)
-//	  Frente		    Re
-//   0.1 - 0.5      0.5 - 0.9
-#define OUT_DM_FRENTE     0.3      
+// Direcao de movimento
+#define OUT_DM_FRENTE     0.3       
 #define OUT_DM_RE         0.7
+#define OUT_DM_PARAR      0.5  // Sua adição correta
 
-//O angulo nao possui receita de bolo, voces podem altera-lo em diferentes niveis, ou ate lidar com valores continuos
-//Angulo de rotacao  (Neuronio da camada de saida 3)
-#define OUT_AR_SEM_ROTACAO  0.2    //0
-#define OUT_AR_LATERAL      0.4    //5
-#define OUT_AR_DIAGONAL     0.6    //15
-#define OUT_AR_FRONTAL      0.8    //45
-//...
-
-//Essa e uma sugestao, voces tambem podem trabalhar com a velocidade de movbvimento tambem sendo retornada pela rede neural, pois quanto mais proximo dos obstaculos, mais lento deveria ser o movimento
-//Velocidade de movimento (Neuronio da camada de saida 4)
+// Angulo de rotacao
+#define OUT_AR_SEM_ROTACAO  0.2    
+#define OUT_AR_LATERAL      0.4    
+#define OUT_AR_DIAGONAL     0.6    
+#define OUT_AR_FRONTAL      0.8    
 
 #define ALCANCE_MAX_SENSOR 5000
 
-//Sobre o numero de neuronio das camadas, a camada de entrada ira refletir o numero de sensores, entao seriam esses 8. Se voces possuissem mais variaveis relevantes para essa operacao, poderiam utiliza-las. 
-//Pensem que ate mesmo a velocidade de movimento atual do robo poderia ser utilizada como entrada para decidir no momento t+1
 // Camada de entrada
 #define NodosEntrada 8
-
-//A quantidade de neuronios nessa camada esta fortemente vinculada a complexidade do problema, sendo uma boa pratica iniciar os esperimentos com pelo menos um neuronio a mais do que na camada de entrada.
 // Camada oculta
 #define NodosOcultos 9
-
-//Essa camada ira definir a quantidade de diferentes variaveis de saida, nesse meu exemplo sao elas  direcao de rotacao (DR), direcao de movimento (DM) e angulo de rotacao (AR).
-//Mas como eu disse no comentario acima, a rede poderia ter um quarto neuronio na camada de saida, para definir a velocidade de mopvimento do robo, ou ate outras saidas que voces condiderem importanes para a resolucao do problema.
 // Camada de saída
 #define NodosSaida 3
 
-//Estrutura da rede neural, sintam-se livres para adicionar novas camadas intermediarias, alterar a funcao de ativacao, bias e etc.
 class NeuralNetwork {
 public:
     int i, j, p, q, r;
@@ -100,33 +80,117 @@ public:
 
     float ValoresSensores[1][NodosEntrada] = {{0, 0, 0, 0, 0, 0, 0, 0}};
 
-    //Exemplo de dadod de treinamento, cada um representando a distancia lida por um sensor
+    // --- DADOS DE TREINAMENTO (18 Padrões) ---
     const float Input[PadroesTreinamento][NodosEntrada] = {
-    //ESQUERDA 							  FRETENE								  DIREITA
-    // {0, 		1, 		2, 		3, 		4, 		5, 		6, 		7}                   {0,      0,       0,       0,       0,       0,       0,       0,},
-        {5000,      5000,       5000,     900,     800,      5000,       5000,       5000},
-        {5000,      5000,       5000,     750,    5000,      5000,       5000,       5000},
+        // ---- Cenários sem obstáculos (seguir em frente)
+        {5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000},
+        {4800, 5000, 5000, 5000, 5000, 5000, 5000, 4800},
+        {4500, 4600, 4800, 5000, 5000, 4800, 4600, 4500},
+
+        // ---- Obstáculo frontal (desviar suave)
+        {5000, 5000, 3000, 1500, 1500, 3000, 5000, 5000},
+        {4800, 4800, 2500, 1200, 1200, 2500, 4800, 4800},
+        {4500, 4500, 2000, 1000, 1000, 2000, 4500, 4500},
+
+        // ---- Obstáculo forte à esquerda (girar direita)
+        { 800, 1200, 3000, 5000, 5000, 5000, 4800, 4500},
+        { 600, 1000, 2500, 4500, 5000, 4800, 4600, 4300},
+        { 500,  800, 2000, 4000, 4500, 4800, 4700, 4600},
+
+        // ---- Obstáculo forte à direita (girar esquerda)
+        {4500, 4800, 5000, 5000, 5000, 3000, 1200,  800},
+        {4300, 4600, 4800, 5000, 5000, 2500, 1000,  600},
+        {4200, 4500, 4700, 5000, 5000, 2000,  900,  500},
+
+        // ---- Obstáculo diagonal esquerdo
+        {1500, 3000, 4500, 5000, 5000, 4500, 3000, 1500},
+        {1200, 2500, 4200, 4800, 4800, 4200, 2500, 1200},
+        {1000, 2000, 4000, 4500, 4500, 4000, 2000, 1000},
+
+        // ---- Obstáculo diagonal direito
+        {1500, 3000, 4500, 5000, 5000, 4500, 3000, 1500},
+        {1200, 2400, 4200, 4800, 4800, 4200, 2400, 1200},
+        {1000, 2000, 3800, 4300, 4300, 3800, 2000, 1000}
     };
+    
     float InputNormalizado[PadroesTreinamento][NodosEntrada];
 
     //Exemplo de output esperado para os dados de treinamento acima
     const float Objetivo[PadroesTreinamento][NodosSaida] = {
-    //   DR,  AR,  DM
-        {OUT_DR_ESQUERDA, OUT_AR_FRONTAL, OUT_DM_FRENTE}, 
-        {OUT_DR_ESQUERDA, OUT_AR_FRONTAL, OUT_DM_FRENTE},
+            // --- Sem obstáculos -> seguir frente
+            {OUT_DR_FRENTE,   OUT_AR_SEM_ROTACAO, OUT_DM_FRENTE},
+            {OUT_DR_FRENTE,   OUT_AR_SEM_ROTACAO, OUT_DM_FRENTE},
+            {OUT_DR_FRENTE,   OUT_AR_SEM_ROTACAO, OUT_DM_FRENTE},
+
+            // --- Obstáculo frontal -> Ré + diagonal
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_RE},
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_RE},
+            {OUT_DR_DIREITA,  OUT_AR_DIAGONAL,    OUT_DM_RE},
+
+            // --- Obstáculo forte à esquerda -> virar à direita
+            {OUT_DR_DIREITA,  OUT_AR_LATERAL,     OUT_DM_FRENTE},
+            {OUT_DR_DIREITA,  OUT_AR_LATERAL,     OUT_DM_FRENTE},
+            {OUT_DR_DIREITA,  OUT_AR_LATERAL,     OUT_DM_FRENTE},
+
+            // --- Obstáculo forte à direita -> virar à esquerda
+            {OUT_DR_ESQUERDA, OUT_AR_LATERAL,     OUT_DM_FRENTE},
+            {OUT_DR_ESQUERDA, OUT_AR_LATERAL,     OUT_DM_FRENTE},
+            {OUT_DR_ESQUERDA, OUT_AR_LATERAL,     OUT_DM_FRENTE},
+
+            // --- Obstáculo diagonal esquerdo -> diagonalisar para direita
+            {OUT_DR_DIREITA,  OUT_AR_DIAGONAL,    OUT_DM_FRENTE},
+            {OUT_DR_DIREITA,  OUT_AR_DIAGONAL,    OUT_DM_FRENTE},
+            {OUT_DR_DIREITA,  OUT_AR_DIAGONAL,    OUT_DM_FRENTE},
+
+            // --- Obstáculo diagonal direito -> diagonalisar para esquerda
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_FRENTE},
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_FRENTE},
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_FRENTE},
     };
     
-    //Aqui eu utilizei os mesmos valores, mas o correto sera definir dados de validacao diferentes daqueles apresentados a rede em seu treinamento, para garantir que ela nao tenha apenas "decorado" as respostas.
-    //Dados de validação
+    // --- DADOS DE VALIDAÇÃO (12 Padrões) ---
     const float InputValidacao[PadroesValidacao][NodosEntrada] = {
-        {5000,      5000,       5000,     900,     800,      5000,       5000,       5000},
-        {5000,      5000,       5000,     750,    5000,      5000,       5000,       5000}
+            // 1. Livre total
+            {5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000},
+            // 2. Livre com pequena inclinação diagonal
+            {4600, 4800, 5000, 5000, 5000, 5000, 4800, 4600},
+            // 3. Livre porém médio (ambiente aberto)
+            {4000, 4000, 4200, 4300, 4300, 4200, 4000, 4000},
+            // 4. Obstáculo frontal médio
+            {5000, 5000, 3200, 1400, 1400, 3200, 5000, 5000},
+            // 5. Obstáculo frontal forte
+            {5000, 5000, 2200, 900,  900, 2200, 5000, 5000},
+            // 6. Obstáculo frontal fortíssimo (quase colisão)
+            {3000, 3000, 1500, 500,  500, 1500, 3000, 3000},
+            // 7. Obstáculo forte à esquerda
+            {600,  900, 2500, 4500, 4800, 5000, 5000, 5000},
+            // 8. Obstáculo médio à esquerda
+            {900, 1500, 3000, 4800, 5000, 5000, 5000, 5000},
+            // 9. Obstáculo leve à esquerda
+            {1200, 2500, 4000, 5000, 5000, 5000, 5000, 5000},
+            // 10. Obstáculo forte à direita
+            {5000, 5000, 5000, 5000, 4800, 2500, 800,  500},
+            // 11. Obstáculo médio à direita
+            {5000, 5000, 5000, 5000, 3000, 1400, 600,  500},
+            // 12. Obstáculo leve à direita
+            {5000, 5000, 5000, 5000, 2000, 1200, 900,  700}
     };
+    
     float InputValidacaoNormalizado[PadroesValidacao][NodosEntrada];
     
     const float ObjetivoValidacao[PadroesValidacao][NodosSaida] = {
-        {OUT_DR_ESQUERDA, OUT_AR_FRONTAL, OUT_DM_FRENTE}, 
-        {OUT_DR_ESQUERDA, OUT_AR_FRONTAL, OUT_DM_FRENTE}
+            {OUT_DR_FRENTE,   OUT_AR_SEM_ROTACAO, OUT_DM_FRENTE}, // 1
+            {OUT_DR_FRENTE,   OUT_AR_SEM_ROTACAO, OUT_DM_FRENTE}, // 2
+            {OUT_DR_FRENTE,   OUT_AR_SEM_ROTACAO, OUT_DM_FRENTE}, // 3
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_RE},     // 4
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_RE},     // 5
+            {OUT_DR_ESQUERDA, OUT_AR_FRONTAL,     OUT_DM_RE},     // 6
+            {OUT_DR_DIREITA,  OUT_AR_LATERAL,     OUT_DM_FRENTE}, // 7
+            {OUT_DR_DIREITA,  OUT_AR_DIAGONAL,    OUT_DM_FRENTE}, // 8
+            {OUT_DR_DIREITA,  OUT_AR_DIAGONAL,    OUT_DM_FRENTE}, // 9
+            {OUT_DR_ESQUERDA, OUT_AR_LATERAL,     OUT_DM_FRENTE}, // 10
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_FRENTE}, // 11
+            {OUT_DR_ESQUERDA, OUT_AR_DIAGONAL,    OUT_DM_FRENTE}  // 12
     };
     
     //--
