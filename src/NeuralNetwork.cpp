@@ -11,6 +11,16 @@ NeuralNetwork::NeuralNetwork()
     setupCamadas();
     normalizarEntradas();
     treinarValidar();
+    
+    if (carregarPesos() == false) 
+    {
+        treinarValidar(); 
+        salvarPesos();    
+    }
+    else 
+    {
+        validarRedeNeural(); 
+    }
 }
 
 void NeuralNetwork::treinarValidar()
@@ -391,4 +401,63 @@ ExpectedMovement NeuralNetwork::definirAcao(int sensor0, int sensor1, int sensor
         printf(" Sensor%d: %.4f ", i, ValoresSensores[0][i]);
 
 	return testarValor();
+}
+
+
+
+void NeuralNetwork::salvarPesos()
+{
+    FILE *arquivo = fopen("pesos_treinados.txt", "w"); // Cria/Sobrescreve o arquivo
+    if (arquivo == NULL) {
+        printf("\nERRO: Nao foi possivel criar o arquivo de pesos.\n");
+        return;
+    }
+
+    printf("\n--- SALVANDO PESOS SINAPTICOS ---\n");
+
+    // 1. Salvar Pesos da Camada Oculta
+    for (int i = 0; i < NodosEntrada + 1; i++) {
+        for (int j = 0; j < NodosOcultos; j++) {
+            fprintf(arquivo, "%f\n", PesosCamadaOculta[i][j]);
+        }
+    }
+
+    // 2. Salvar Pesos da Camada de Saida
+    for (int i = 0; i < NodosOcultos + 1; i++) {
+        for (int j = 0; j < NodosSaida; j++) {
+            fprintf(arquivo, "%f\n", PesosSaida[i][j]);
+        }
+    }
+
+    fclose(arquivo);
+    printf("Pesos salvos com sucesso em 'pesos_treinados.txt'!\n");
+}
+
+bool NeuralNetwork::carregarPesos()
+{
+    FILE *arquivo = fopen("pesos_treinados.txt", "r");
+    if (arquivo == NULL) {
+        printf("\nNenhum arquivo de pesos encontrado. A rede sera treinada do zero.\n");
+        return false; // Retorna falso para indicar que precisa treinar
+    }
+
+    printf("\n--- CARREGANDO PESOS SALVOS ---\n");
+
+    // 1. Carregar Pesos da Camada Oculta
+    for (int i = 0; i < NodosEntrada + 1; i++) {
+        for (int j = 0; j < NodosOcultos; j++) {
+            fscanf(arquivo, "%f", &PesosCamadaOculta[i][j]);
+        }
+    }
+
+    // 2. Carregar Pesos da Camada de Saida
+    for (int i = 0; i < NodosOcultos + 1; i++) {
+        for (int j = 0; j < NodosSaida; j++) {
+            fscanf(arquivo, "%f", &PesosSaida[i][j]);
+        }
+    }
+
+    fclose(arquivo);
+    printf("Pesos carregados com sucesso! Treinamento pulado.\n");
+    return true; // Retorna verdadeiro indicando que carregou ok
 }
